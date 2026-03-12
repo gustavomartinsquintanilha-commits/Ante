@@ -38,8 +38,8 @@ SENHA = "gustavo"
 DESTINO = Path(r"C:\Users\gusta\OneDrive\Documentos\Codigos\Reporte - Logistico\Base")
 
 # Tempo maximo de espera (segundos)
-TIMEOUT_ELEMENTO = 30
-TIMEOUT_DOWNLOAD = 60
+TIMEOUT_ELEMENTO = 15
+TIMEOUT_DOWNLOAD = 30
 
 # Pasta para salvar screenshots de debug
 SCREENSHOTS_DIR = Path(__file__).parent / "screenshots"
@@ -259,6 +259,9 @@ def executar():
 
     except Exception as e:
         print(f"[ERRO] {e}")
+        if driver:
+            driver.save_screenshot(str(SCREENSHOTS_DIR / "99_ERRO.png"))
+            print("[SCREENSHOT] 99_ERRO.png - Captura no momento do erro")
         raise
     finally:
         if driver:
