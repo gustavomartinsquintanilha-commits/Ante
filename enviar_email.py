@@ -19,7 +19,11 @@ SMTP_USER = 'veiculosemreportar@gmail.com'
 SMTP_PASS = 'svhh lgau okua kkof'  # Senha de app
 
 # --- Diretório com os arquivos ---
-PASTA_ARQUIVOS = r'C:\Users\gusta\OneDrive\Documentos\Codigos\Envio de e-mail - VSR\clientes_para_envio'
+IS_CI = os.environ.get("HEADLESS", "").lower() == "true"
+if IS_CI:
+    PASTA_ARQUIVOS = os.path.join(os.getcwd(), "relatorios_envio")
+else:
+    PASTA_ARQUIVOS = r'C:\Users\gusta\OneDrive\Documentos\Codigos\Envio de e-mail - VSR\clientes_para_envio'
 
 # --- Empresas ignoradas (não processar arquivos delas) ---
 empresas_ignorar = {'4bts', 'newsgps', 'projeccons'}
