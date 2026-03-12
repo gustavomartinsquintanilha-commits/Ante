@@ -70,6 +70,7 @@ def criar_driver(download_dir: str) -> webdriver.Chrome:
     opts.add_argument("--disable-gpu")
     opts.add_argument("--no-sandbox")
     opts.add_argument("--disable-dev-shm-usage")
+    opts.add_argument("--disable-popup-blocking")
     opts.add_argument("--window-size=1280,900")
 
     # No CI usa chromedriver do sistema, local usa webdriver_manager
@@ -148,63 +149,40 @@ def executar():
 
         # ----- ETAPA 2: ULTIMAS POSICOES -----
         print("[*] Abrindo Ultimas Posicoes...", flush=True)
+        janela_principal = driver.current_window_handle
+        
         link_posicoes = wait.until(
-            EC.element_to_be_clickable(
-                (By.XPATH, "//a[contains(@onclick,'AbreUltimasPosicoes')]")
-            )
+            EC.element_to_be_clickable((By.XPATH, "//a[contains(@onclick,'AbreUltimasPosicoes')]"))
         )
         link_posicoes.click()
-        print("[OK] Ultimas Posicoes aberta!", flush=True)
-
-        # Aguarda a pagina de posicoes carregar
-        time.sleep(5)
-
-        # Verifica se abriu em nova janela/aba
-        print(f"[INFO] Janelas abertas: {len(driver.window_handles)}", flush=True)
+        print("[OK] Clicou em Ultimas Posicoes!", flush=True)
+        
+        # Aguarda nova aba abrir
+        for tentativa in range(15):
+            time.sleep(1)
+            if len(driver.window_handles) > 1:
+                print(f"[OK] Nova aba detectada! ({tentativa+1}s)", flush=True)
+                break
+        
+        # Muda para a nova aba
         if len(driver.window_handles) > 1:
-            driver.switch_to.window(driver.window_handles[-1])
-            print("[->] Alternado para nova janela/aba.", flush=True)
-            time.sleep(3)
-
-        # Verifica se há iframes na página
-        iframes = driver.find_elements(By.TAG_NAME, "iframe")
-        print(f"[INFO] Iframes encontrados: {len(iframes)}", flush=True)
-        if iframes:
-            driver.switch_to.frame(iframes[0])
-            print("[->] Alternado para iframe.", flush=True)
-            time.sleep(2)
+            for handle in driver.window_handles:
+                if handle != janela_principal:
+                    driver.switch_to.window(handle)
+                    print(f"[->] Alternado para nova aba", flush=True)
+                    break
+        
+        time.sleep(3)
+        driver.save_screenshot(str(SCREENSHOTS_DIR / "posicoes_03_ultimas_posicoes.png"))
+        print(f"[INFO] URL atual: {driver.current_url}", flush=True)
+        print("[OK] Ultimas Posicoes aberta!", flush=True)
 
         # ----- ETAPA 3: EXPORTAR XLS -----
         print("[*] Clicando em Exportar XLS...", flush=True)
-        driver.save_screenshot(str(SCREENSHOTS_DIR / "posicoes_03_ultimas_posicoes.png"))
-        print(f"[INFO] URL atual: {driver.current_url}", flush=True)
-        
-        # Tenta encontrar o botão com diferentes seletores
-        btn_exportar = None
-        seletores = [
-            (By.ID, "ctl00_ContentPlaceHolderPortal_btnExportXLS"),
-            (By.ID, "btnExportXLS"),
-            (By.XPATH, "//input[contains(@id, 'ExportXLS')]"),
-            (By.XPATH, "//input[contains(@value, 'Excel')]"),
-            (By.XPATH, "//button[contains(text(), 'Excel')]"),
-        ]
-        for by, selector in seletores:
-            try:
-                btn_exportar = WebDriverWait(driver, 5).until(
-                    EC.element_to_be_clickable((by, selector))
-                )
-                print(f"[OK] Botao encontrado com: {selector}", flush=True)
-                break
-            except:
-                print(f"[WARN] Nao encontrado: {selector}", flush=True)
-        
-        if not btn_exportar:
-            # Lista todos os inputs/buttons para debug
-            inputs = driver.find_elements(By.TAG_NAME, "input")
-            print(f"[DEBUG] Inputs na pagina: {len(inputs)}", flush=True)
-            for inp in inputs[:10]:
-                print(f"  - id={inp.get_attribute('id')} type={inp.get_attribute('type')} value={inp.get_attribute('value')}", flush=True)
-            raise Exception("Botao de exportar XLS nao encontrado")
+        btn_exportar = wait.until(
+            EC.element_to_be_clickable((By.ID, "ctl00_ContentPlaceHolderPortal_btnExportXLS"))
+        )
+        print("[OK] Botao encontrado!", flush=True)
         btn_exportar.click()
         print("[OK] Exportacao iniciada!", flush=True)
 
