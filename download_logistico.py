@@ -41,6 +41,10 @@ DESTINO = Path(r"C:\Users\gusta\OneDrive\Documentos\Codigos\Reporte - Logistico\
 TIMEOUT_ELEMENTO = 30
 TIMEOUT_DOWNLOAD = 60
 
+# Pasta para salvar screenshots de debug
+SCREENSHOTS_DIR = Path(__file__).parent / "screenshots"
+SCREENSHOTS_DIR.mkdir(exist_ok=True)
+
 
 # ==========================================================
 # FUNCOES
@@ -145,6 +149,8 @@ def executar():
         # ----- ETAPA 1: LOGIN -----
         print(f"[*] Acessando {URL_LOGIN}")
         driver.get(URL_LOGIN)
+        driver.save_screenshot(str(SCREENSHOTS_DIR / "01_pagina_inicial.png"))
+        print("[SCREENSHOT] 01_pagina_inicial.png")
 
         # Re-aplica CDP apos carregar a pagina (necessario em algumas versoes do Chrome)
         driver.execute_cdp_cmd("Page.setDownloadBehavior", {
@@ -160,6 +166,8 @@ def executar():
         select = Select(dropdown_empresa)
         select.select_by_value("Logistica")
         print("[OK] Servico selecionado!")
+        driver.save_screenshot(str(SCREENSHOTS_DIR / "02_servico_selecionado.png"))
+        print("[SCREENSHOT] 02_servico_selecionado.png")
 
         # Aguarda a pagina reagir ao postback do dropdown
         time.sleep(2)
@@ -186,6 +194,9 @@ def executar():
         )
         btn_entrar.click()
         print("[OK] Login realizado!")
+        time.sleep(2)
+        driver.save_screenshot(str(SCREENSHOTS_DIR / "03_apos_login.png"))
+        print("[SCREENSHOT] 03_apos_login.png")
 
         # ----- ETAPA 2: ULTIMAS POSICOES -----
         print("[*] Abrindo Ultimas Posicoes...")
@@ -197,6 +208,8 @@ def executar():
 
         # Aguarda a pagina de posicoes carregar
         time.sleep(3)
+        driver.save_screenshot(str(SCREENSHOTS_DIR / "04_ultimas_posicoes.png"))
+        print("[SCREENSHOT] 04_ultimas_posicoes.png")
 
         # Verifica se abriu em nova janela/aba
         if len(driver.window_handles) > 1:
@@ -219,6 +232,8 @@ def executar():
         )
         btn_exportar.click()
         print("[OK] Exportacao iniciada!")
+        driver.save_screenshot(str(SCREENSHOTS_DIR / "05_apos_exportar.png"))
+        print("[SCREENSHOT] 05_apos_exportar.png")
         
         # Aguarda um pouco e tenta aceitar qualquer confirmacao de download
         time.sleep(2)
