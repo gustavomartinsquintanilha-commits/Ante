@@ -74,6 +74,9 @@ def consultar_veiculos(id_empresa_consulta):
     username = os.getenv('DB_USERNAME')
     password = os.getenv('DB_PASSWORD')
     driver = os.getenv('DB_DRIVER')
+    # No CI, Ubuntu 24.04 só tem ODBC Driver 18
+    if IS_CI and driver and '17' in driver:
+        driver = '{ODBC Driver 18 for SQL Server}'
 
     sql_query = """
     SET NOCOUNT ON;
@@ -90,6 +93,8 @@ def consultar_veiculos(id_empresa_consulta):
             return None
 
         conn_str = f'DRIVER={driver};SERVER={server};DATABASE={database};UID={username};PWD={password}'
+        if IS_CI:
+            conn_str += ';TrustServerCertificate=yes;Encrypt=yes'
         cnxn = pyodbc.connect(conn_str)
         df_veiculos = pd.read_sql(sql_query, cnxn, params=[id_empresa_consulta])
         cnxn.close()
