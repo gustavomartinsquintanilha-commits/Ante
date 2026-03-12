@@ -14,22 +14,25 @@ def executar_processos():
     IS_CI = os.environ.get("HEADLESS", "").lower() == "true"
     if IS_CI:
         diretorio_base = os.getcwd()
+        pasta_scripts = ""  # No CI, scripts estao no raiz
     else:
         diretorio_base = r"C:\Users\gusta\OneDrive\Documentos\Codigos"
+        pasta_scripts = "Ante"  # Local, scripts estao em Ante/
     
     print(f"[INFO] Diretorio base: {diretorio_base}", flush=True)
+    print(f"[INFO] Pasta scripts: {pasta_scripts or '(raiz)'}", flush=True)
 
     # ── FASE 1: Downloads (executam primeiro e aguardam conclusao) ──
     downloads = [
-        ("Ante", "download_posicoes.py"),
-        ("Ante", "download_logistico.py"),
+        (pasta_scripts, "download_posicoes.py"),
+        (pasta_scripts, "download_logistico.py"),
     ]
 
     # ── FASE 2: Tratativas (so disparam apos os downloads) ──
     reportes = [
-        ("Ante", "sing.py"),
-        ("Ante", "telemetria.py"),
-        ("Ante", "logistico.py"),
+        (pasta_scripts, "logistico.py"),
+        (pasta_scripts, "sing.py"),
+        (pasta_scripts, "telemetria.py"),
     ]
 
     print("\n" + "=" * 60, flush=True)
@@ -85,10 +88,10 @@ def executar_processos():
     # ── FASE 3: Envio de e-mails (apos reportes) ──
     print("\n FASE 3 - ENVIO DE E-MAILS", flush=True)
     print("-" * 40, flush=True)
-    pasta_email = os.path.join(diretorio_base, "Ante")
+    pasta_email = os.path.join(diretorio_base, pasta_scripts) if pasta_scripts else diretorio_base
     script_email = os.path.join(pasta_email, "enviar_email.py")
     if os.path.exists(script_email):
-        print("[*] Ante -> Executando enviar_email.py...", flush=True)
+        print(f"[*] Executando enviar_email.py...", flush=True)
         try:
             resultado = subprocess.run(
                 [sys.executable, "enviar_email.py"],
