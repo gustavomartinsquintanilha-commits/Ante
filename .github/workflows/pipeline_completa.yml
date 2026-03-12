@@ -31,23 +31,38 @@ jobs:
 
       - name: Conectar VPN (FortiGate SSL)
         run: |
-          cat > /tmp/vpn.conf << EOF
-          host = 8.243.35.166
-          port = 443
-          username = gustavo.martins
-          password = Ljkaus*&2025
-          EOF
-          # Obtem fingerprint do certificado
+          # Obtem fingerprint do certificado SSL
           CERT_HASH=$(echo | openssl s_client -connect 8.243.35.166:443 2>/dev/null | openssl x509 -fingerprint -sha256 -noout | sed 's/.*=//;s/://g')
-          echo "[VPN] Certificado: $CERT_HASH"
-          # Conecta em background
-          sudo openfortivpn 8.243.35.166:443 -u gustavo.martins -p 'Ljkaus*&2025' --trusted-cert="$CERT_HASH" &
+          echo "[VPN] Certificado SHA256: $CERT_HASH"
+          
+          # Conecta VPN e salva log
+          sudo openfortivpn 8.243.35.166:443 \
+            -u gustavo.martins \
+            -p 'Ljkaus*&2025' \
+            --trusted-cert="$CERT_HASH" \
+            --pppd-log=/tmp/vpn_pppd.log \
+            > /tmp/vpn.log 2>&1 &
           VPN_PID=$!
           echo "[VPN] PID: $VPN_PID"
-          sleep 15
-          echo "[VPN] Verificando conectividade..."
+          
+          # Aguarda até 30s pelo tunnel (ppp0)
+          for i in $(seq 1 30); do
+            if ip link show ppp0 > /dev/null 2>&1; then
+              echo "[VPN] Tunnel ppp0 ativo apos ${i}s!"
+              break
+            fi
+            sleep 1
+          done
+          
+          # Mostra status
+          echo "=== VPN LOG ==="
+          cat /tmp/vpn.log 2>/dev/null || echo "(sem log)"
+          echo "=== INTERFACES ==="
+          ip addr show ppp0 2>/dev/null || echo "ppp0 NAO encontrado"
+          echo "=== ROTAS ==="
           ip route
-          ping -c 3 -W 5 192.168.40.30 && echo "[VPN] OK - SQL Server acessivel!" || echo "[VPN] WARN - SQL Server nao respondeu ao ping (pode ser firewall ICMP)"
+          echo "=== TESTE CONECTIVIDADE ==="
+          ping -c 2 -W 3 192.168.40.30 && echo "[VPN] OK!" || echo "[VPN] WARN - ping falhou"
 
       - name: Setup Chrome
         uses: browser-actions/setup-chrome@v1
