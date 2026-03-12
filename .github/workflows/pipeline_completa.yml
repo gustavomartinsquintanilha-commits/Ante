@@ -35,8 +35,7 @@ jobs:
         run: |
           mkdir -p output
           mkdir -p screenshots
-          mkdir -p "Reporte - Logistico/Base"
-          mkdir -p "Envio de e-mail - VSR/relatorios"
+          mkdir -p relatorios_envio
 
       - name: Executar R_Geral.py (pipeline completa)
         run: python R_Geral.py
