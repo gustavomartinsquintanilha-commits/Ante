@@ -31,24 +31,27 @@ jobs:
       - name: Setup ChromeDriver
         uses: nanasess/setup-chromedriver@v2
 
-      - name: Debug - Inspecionar HTML do site
-        run: |
-          echo "PWD: $(pwd)"
-          ls -la
-          python debug_html.py
-          echo "--- Debug output ---"
-          ls -la debug_output/ || echo "debug_output nao existe"
+      - name: Executar download_logistico.py
+        run: python download_logistico.py
         env:
           HEADLESS: "true"
-        timeout-minutes: 3
+        timeout-minutes: 5
 
-      - name: Upload debug output
+      - name: Upload arquivo baixado
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: debug-output
+          name: logistico-xls
           path: |
-            debug_output/
-            **/debug_output/
+            output/
+          if-no-files-found: warn
+          retention-days: 7
+
+      - name: Upload screenshots de debug
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: screenshots-debug
+          path: screenshots/
           if-no-files-found: warn
           retention-days: 7
