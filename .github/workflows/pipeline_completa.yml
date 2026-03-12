@@ -1,0 +1,78 @@
+name: Pipeline Completa VSR
+
+on:
+  workflow_dispatch:  # Permite execucao manual
+  # schedule:
+  #   - cron: '0 8 * * *'  # Descomente para agendar (ex: todo dia 8h UTC)
+
+jobs:
+  pipeline:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout codigo
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Instalar dependencias
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Setup Chrome
+        uses: browser-actions/setup-chrome@v1
+        with:
+          chrome-version: stable
+
+      - name: Setup ChromeDriver
+        uses: nanasess/setup-chromedriver@v2
+
+      - name: Criar diretorios de output
+        run: |
+          mkdir -p output
+          mkdir -p screenshots
+          mkdir -p "Reporte - Logistico/Base"
+          mkdir -p "Envio de e-mail - VSR/relatorios"
+
+      - name: Executar R_Geral.py (pipeline completa)
+        run: python R_Geral.py
+        env:
+          HEADLESS: "true"
+          PYTHONPATH: ${{ github.workspace }}
+        timeout-minutes: 15
+
+      - name: Upload arquivos baixados
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: arquivos-baixados
+          path: |
+            **/*.xls
+            **/*.xlsx
+            output/
+          if-no-files-found: warn
+          retention-days: 7
+
+      - name: Upload relatorios gerados
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: relatorios-gerados
+          path: |
+            "Envio de e-mail - VSR/relatorios/"
+            "Reporte - Logistico/Base/"
+          if-no-files-found: warn
+          retention-days: 7
+
+      - name: Upload screenshots de debug
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: screenshots-debug
+          path: screenshots/
+          if-no-files-found: warn
+          retention-days: 7
