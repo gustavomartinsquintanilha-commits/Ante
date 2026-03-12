@@ -40,7 +40,7 @@ jobs:
           ls -la debug_output/ || echo "debug_output nao existe"
         env:
           HEADLESS: "true"
-        timeout-minutes: 2
+        timeout-minutes: 3
 
       - name: Upload debug output
         uses: actions/upload-artifact@v4
