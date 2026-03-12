@@ -61,8 +61,23 @@ def criar_driver(download_dir: str) -> webdriver.Chrome:
         "download.prompt_for_download": False,
         "download.directory_upgrade": True,
         "safebrowsing.enabled": False,
+        # Desativa gerenciador de senhas
+        "credentials_enable_service": False,
+        "profile.password_manager_enabled": False,
+        "profile.password_manager_leak_detection": False,
+        # Permite downloads inseguros (HTTP)
+        "profile.default_content_setting_values.automatic_downloads": 1,
+        "profile.default_content_setting_values.insecure_content": 1,
+        "download.insecure_content_allowed": True,
+        # Desativa popups
+        "profile.default_content_setting_values.notifications": 2,
+        "plugins.always_open_pdf_externally": True,
+        "profile.default_content_settings.popups": 0,
+        "download.extensions_to_open": "xls",
     }
     opts.add_experimental_option("prefs", prefs)
+    opts.add_experimental_option("excludeSwitches", ["enable-automation"])
+    opts.add_experimental_option("useAutomationExtension", False)
     # Modo headless via variavel de ambiente
     if IS_CI:
         opts.add_argument("--headless=new")
