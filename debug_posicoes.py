@@ -59,19 +59,35 @@ def main():
         link_posicoes = wait.until(
             EC.element_to_be_clickable((By.XPATH, "//a[contains(@onclick,'AbreUltimasPosicoes')]"))
         )
+        # Guarda janela atual
+        janela_principal = driver.current_window_handle
+        print(f"[INFO] Janela principal: {janela_principal}", flush=True)
+        
         link_posicoes.click()
         print("[OK] Clicou em Ultimas Posicoes!", flush=True)
-        time.sleep(5)
+        
+        # Aguarda popup abrir (pode demorar)
+        print("[*] Aguardando popup abrir...", flush=True)
+        for tentativa in range(10):
+            time.sleep(1)
+            if len(driver.window_handles) > 1:
+                print(f"[OK] Popup detectado na tentativa {tentativa+1}!", flush=True)
+                break
+            print(f"  Tentativa {tentativa+1}: {len(driver.window_handles)} janela(s)", flush=True)
 
         # Verifica janelas
         print(f"[INFO] Janelas abertas: {len(driver.window_handles)}", flush=True)
         for i, handle in enumerate(driver.window_handles):
-            print(f"  Janela[{i}]: {handle}", flush=True)
+            driver.switch_to.window(handle)
+            print(f"  Janela[{i}]: {handle} URL={driver.current_url}", flush=True)
         
-        if len(driver.window_handles) > 1:
-            driver.switch_to.window(driver.window_handles[-1])
-            print("[->] Alternado para nova janela!", flush=True)
-            time.sleep(3)
+        # Muda para a janela que NÃO é a principal
+        for handle in driver.window_handles:
+            if handle != janela_principal:
+                driver.switch_to.window(handle)
+                print(f"[->] Alternado para popup: {handle}", flush=True)
+                time.sleep(3)
+                break
 
         driver.save_screenshot(str(OUTPUT_DIR / "03_ultimas_posicoes.png"))
         print(f"[INFO] URL atual: {driver.current_url}", flush=True)
