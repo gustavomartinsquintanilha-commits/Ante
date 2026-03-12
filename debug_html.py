@@ -22,37 +22,45 @@ print(f"[INFO] Working dir: {os.getcwd()}")
 print(f"[INFO] Output dir: {OUTPUT_DIR}")
 
 def main():
+    print("[*] Configurando Chrome...", flush=True)
     opts = Options()
     if os.environ.get("HEADLESS", "").lower() == "true":
         opts.add_argument("--headless=new")
     opts.add_argument("--disable-gpu")
     opts.add_argument("--no-sandbox")
+    opts.add_argument("--disable-dev-shm-usage")
     opts.add_argument("--window-size=1280,900")
     opts.add_argument("--disable-web-security")
     opts.add_argument("--allow-running-insecure-content")
     opts.add_argument("--unsafely-treat-insecure-origin-as-secure=http://suporte.newsgps.com.br")
 
-    print("[*] Abrindo navegador...")
+    print("[*] Abrindo navegador...", flush=True)
     driver = webdriver.Chrome(options=opts)
+    driver.set_page_load_timeout(30)
+    driver.set_script_timeout(15)
+    print("[OK] Navegador aberto!", flush=True)
 
     try:
-        print(f"[*] Acessando {URL_LOGIN}")
-        driver.get(URL_LOGIN)
+        print(f"[*] Acessando {URL_LOGIN}", flush=True)
+        try:
+            driver.get(URL_LOGIN)
+        except Exception as e:
+            print(f"[WARN] Timeout ao carregar pagina: {e}", flush=True)
         time.sleep(3)
 
         # Salva screenshot
         driver.save_screenshot(str(OUTPUT_DIR / "debug_01_inicial.png"))
-        print("[OK] Screenshot salvo")
+        print("[OK] Screenshot salvo", flush=True)
 
         # Salva HTML completo
         html = driver.page_source
         with open(OUTPUT_DIR / "debug_01_html.html", "w", encoding="utf-8") as f:
             f.write(html)
-        print("[OK] HTML salvo")
+        print("[OK] HTML salvo", flush=True)
 
         # Imprime URL atual
-        print(f"[INFO] URL atual: {driver.current_url}")
-        print(f"[INFO] Titulo: {driver.title}")
+        print(f"[INFO] URL atual: {driver.current_url}", flush=True)
+        print(f"[INFO] Titulo: {driver.title}", flush=True)
 
         # Imprime todos os iframes
         iframes = driver.find_elements("tag name", "iframe")
@@ -111,7 +119,7 @@ def main():
 
     finally:
         driver.quit()
-        print("\n[OK] Navegador fechado.")
+        print("\n[OK] Navegador fechado.", flush=True)
 
 if __name__ == "__main__":
     main()
