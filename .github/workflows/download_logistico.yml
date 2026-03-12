@@ -28,27 +28,20 @@ jobs:
         with:
           chrome-version: stable
 
-      - name: Executar download_logistico.py
-        run: python download_logistico.py
+      - name: Setup ChromeDriver
+        uses: nanasess/setup-chromedriver@v2
+
+      - name: Debug - Inspecionar HTML do site
+        run: python debug_html.py
         env:
           HEADLESS: "true"
+        timeout-minutes: 2
 
-      - name: Upload arquivo baixado
+      - name: Upload debug output
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: logistico-xls
-          path: |
-            **/*.xls
-            **/*.xlsx
-          if-no-files-found: warn
-          retention-days: 7
-
-      - name: Upload screenshots de debug
-        uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: screenshots-debug
-          path: screenshots/
+          name: debug-output
+          path: debug_output/
           if-no-files-found: warn
           retention-days: 7
