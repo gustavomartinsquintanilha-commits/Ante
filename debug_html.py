@@ -16,8 +16,10 @@ if sys.stderr.encoding != "utf-8":
     sys.stderr.reconfigure(encoding="utf-8", errors="replace")
 
 URL_LOGIN = "http://suporte.newsgps.com.br/"
-OUTPUT_DIR = Path(__file__).parent / "debug_output"
+OUTPUT_DIR = Path(os.getcwd()) / "debug_output"
 OUTPUT_DIR.mkdir(exist_ok=True)
+print(f"[INFO] Working dir: {os.getcwd()}")
+print(f"[INFO] Output dir: {OUTPUT_DIR}")
 
 def main():
     opts = Options()
