@@ -8,12 +8,16 @@ import re
 # 1. CONFIGURAÇÕES DE CAMINHO (GUSTAVO)
 # ==========================================================
 BASE_DIR = Path(__file__).resolve().parent
+IS_CI = os.environ.get("HEADLESS", "").lower() == "true"
 
-# Pasta BASE onde os .xls ficam (na pasta original Reporte - Logistico)
-CAMINHO_BASE = BASE_DIR.parent / "Reporte - Logistico" / "Base"
-
-# Pasta de saída para o envio de e-mail
-CAMINHO_ENVIO = BASE_DIR.parent / "Envio de e-mail - VSR" / "clientes_para_envio"
+if IS_CI:
+    # No CI, arquivos estão em output/
+    CAMINHO_BASE = Path(os.getcwd()) / "output"
+    CAMINHO_ENVIO = Path(os.getcwd()) / "relatorios_envio"
+else:
+    # Local
+    CAMINHO_BASE = BASE_DIR.parent / "Reporte - Logistico" / "Base"
+    CAMINHO_ENVIO = BASE_DIR.parent / "Envio de e-mail - VSR" / "clientes_para_envio"
 
 TERMOS_IGNORADOS = ['_Historico', '_Reserva', '_Oficina', '_Venda', '_Teste', 'RESERVA', 'OFICINA', '_HISTORICO']
 
