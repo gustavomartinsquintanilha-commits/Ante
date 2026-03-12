@@ -1,11 +1,5 @@
 import os
 import sys
-
-# No CI, pula execução (SQL Server não disponível)
-if os.environ.get("HEADLESS", "").lower() == "true":
-    print("[SKIP] sing.py - SQL Server não disponível no CI", flush=True)
-    sys.exit(0)
-
 import pyodbc
 import pandas as pd
 from datetime import datetime, timedelta
@@ -19,16 +13,18 @@ from pathlib import Path
 
 # Pega o caminho de onde este script está (C:\...\Ante)
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+IS_CI = os.environ.get("HEADLESS", "").lower() == "true"
 
-# Pasta original onde ficam os arquivos .env e 2.env (Reporte - SING)
-DIRETORIO_BASE = os.path.join(os.path.dirname(BASE_DIR), 'Reporte - SING')
-
-# Pasta onde está o Excel de clientes (dentro de Reporte - SING)
-DIRETORIO_ARQUIVO_CLIENTES = os.path.join(DIRETORIO_BASE, 'teste_banco', 'Clientes')
-
-# Pasta de saída final (Sobe um nível para 'Codigos' e entra na pasta de envio)
-# os.path.dirname(BASE_DIR) pega a pasta "Codigos"
-DIRETORIO_SAIDA_RELATORIOS = os.path.join(os.path.dirname(BASE_DIR), 'Envio de e-mail - VSR', 'clientes_para_envio')
+if IS_CI:
+    # No CI, arquivos .env e clientes ficam no diretorio do repo
+    DIRETORIO_BASE = os.getcwd()
+    DIRETORIO_ARQUIVO_CLIENTES = os.getcwd()
+    DIRETORIO_SAIDA_RELATORIOS = os.path.join(os.getcwd(), 'relatorios_envio')
+else:
+    # Local
+    DIRETORIO_BASE = os.path.join(os.path.dirname(BASE_DIR), 'Reporte - SING')
+    DIRETORIO_ARQUIVO_CLIENTES = os.path.join(DIRETORIO_BASE, 'teste_banco', 'Clientes')
+    DIRETORIO_SAIDA_RELATORIOS = os.path.join(os.path.dirname(BASE_DIR), 'Envio de e-mail - VSR', 'clientes_para_envio')
 
 NOME_ARQUIVO_LOOKUP = 'clientes_listagem.xlsx'
 
