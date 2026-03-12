@@ -19,7 +19,6 @@ from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.support.ui import WebDriverWait, Select
 from selenium.webdriver.support import expected_conditions as EC
-from webdriver_manager.chrome import ChromeDriverManager
 
 # Garante saida UTF-8 no console Windows
 if sys.stdout.encoding != "utf-8":
@@ -93,8 +92,15 @@ def criar_driver(download_dir: str) -> webdriver.Chrome:
     opts.add_argument("--disable-web-security")
     opts.add_argument("--allow-insecure-localhost")
 
-    service = Service(ChromeDriverManager().install())
-    driver = webdriver.Chrome(service=service, options=opts)
+    # No GitHub Actions, usa chromedriver do sistema; localmente usa webdriver_manager
+    if os.environ.get("HEADLESS", "").lower() == "true":
+        # GitHub Actions - chromedriver já está no PATH
+        driver = webdriver.Chrome(options=opts)
+    else:
+        # Local - usa webdriver_manager
+        from webdriver_manager.chrome import ChromeDriverManager
+        service = Service(ChromeDriverManager().install())
+        driver = webdriver.Chrome(service=service, options=opts)
     return driver
 
 
