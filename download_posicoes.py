@@ -148,30 +148,10 @@ def executar():
         print("[SCREENSHOT] posicoes_02_apos_login.png", flush=True)
 
         # ----- ETAPA 2: ULTIMAS POSICOES -----
-        print("[*] Abrindo Ultimas Posicoes...", flush=True)
-        janela_principal = driver.current_window_handle
-        
-        link_posicoes = wait.until(
-            EC.element_to_be_clickable((By.XPATH, "//a[contains(@onclick,'AbreUltimasPosicoes')]"))
-        )
-        link_posicoes.click()
-        print("[OK] Clicou em Ultimas Posicoes!", flush=True)
-        
-        # Aguarda nova aba abrir
-        for tentativa in range(15):
-            time.sleep(1)
-            if len(driver.window_handles) > 1:
-                print(f"[OK] Nova aba detectada! ({tentativa+1}s)", flush=True)
-                break
-        
-        # Muda para a nova aba
-        if len(driver.window_handles) > 1:
-            for handle in driver.window_handles:
-                if handle != janela_principal:
-                    driver.switch_to.window(handle)
-                    print(f"[->] Alternado para nova aba", flush=True)
-                    break
-        
+        # Navega diretamente (nova aba é bloqueada no headless)
+        URL_POSICOES = "https://bus.systemsatx.com.br/Rastreamento/UltimasPosicoes.aspx"
+        print(f"[*] Acessando diretamente {URL_POSICOES}", flush=True)
+        driver.get(URL_POSICOES)
         time.sleep(3)
         driver.save_screenshot(str(SCREENSHOTS_DIR / "posicoes_03_ultimas_posicoes.png"))
         print(f"[INFO] URL atual: {driver.current_url}", flush=True)
