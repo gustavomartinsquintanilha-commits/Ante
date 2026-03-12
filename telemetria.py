@@ -8,9 +8,14 @@ from datetime import datetime, timedelta, timezone
 # 1. CONFIGURAÇÕES DE DIRETÓRIOS (DINÂMICAS)
 # =================================================================
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+IS_CI = os.environ.get("HEADLESS", "").lower() == "true"
 
-# Sobe um nível para 'Codigos' e entra na pasta de envio
-PASTA_BASE = os.path.normpath(os.path.join(BASE_DIR, "..", "Envio de e-mail - VSR", "clientes_para_envio"))
+if IS_CI:
+    # No CI, salva em relatorios_envio/
+    PASTA_BASE = os.path.join(os.getcwd(), "relatorios_envio")
+else:
+    # Local
+    PASTA_BASE = os.path.normpath(os.path.join(BASE_DIR, "..", "Envio de e-mail - VSR", "clientes_para_envio"))
 
 # =================================================================
 # 2. PARÂMETROS DE CONFIGURAÇÃO
