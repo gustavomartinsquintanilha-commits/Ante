@@ -34,14 +34,18 @@ USUARIO = "gustavo"
 SENHA = "gustavo"
 
 # Diretorio destino do arquivo baixado
-DESTINO = Path(r"C:\Users\gusta\OneDrive\Documentos\Codigos\Reporte - Logistico\Base")
+IS_CI = os.environ.get("HEADLESS", "").lower() == "true"
+if IS_CI:
+    DESTINO = Path(os.getcwd()) / "output"
+else:
+    DESTINO = Path(r"C:\Users\gusta\OneDrive\Documentos\Codigos\Reporte - Logistico\Base")
 
 # Tempo maximo de espera (segundos)
-TIMEOUT_ELEMENTO = 15
-TIMEOUT_DOWNLOAD = 30
+TIMEOUT_ELEMENTO = 30
+TIMEOUT_DOWNLOAD = 60
 
 # Pasta para salvar screenshots de debug
-SCREENSHOTS_DIR = Path(__file__).parent / "screenshots"
+SCREENSHOTS_DIR = Path(os.getcwd()) / "screenshots"
 SCREENSHOTS_DIR.mkdir(exist_ok=True)
 
 
@@ -83,6 +87,7 @@ def criar_driver(download_dir: str) -> webdriver.Chrome:
         print("[*] Executando em modo HEADLESS")
     opts.add_argument("--disable-gpu")
     opts.add_argument("--no-sandbox")
+    opts.add_argument("--disable-dev-shm-usage")
     opts.add_argument("--window-size=1280,900")
     opts.add_argument("--disable-features=PasswordLeakDetection,PasswordCheck,InsecureDownloadWarnings,SafeBrowsingEnhancedProtection,DownloadBubble,DownloadBubbleV2")
     opts.add_argument("--disable-save-password-bubble")
@@ -137,7 +142,7 @@ def executar():
     driver = None
     try:
         # ----- Inicializa o browser -----
-        print("[*] Abrindo navegador...")
+        print("[*] Abrindo navegador...", flush=True)
         driver = criar_driver(download_tmp)
 
         # Forca o Chrome a permitir downloads via CDP (contorna bloqueio HTTP)
@@ -153,10 +158,15 @@ def executar():
         wait = WebDriverWait(driver, TIMEOUT_ELEMENTO)
 
         # ----- ETAPA 1: LOGIN -----
-        print(f"[*] Acessando {URL_LOGIN}")
-        driver.get(URL_LOGIN)
+        print(f"[*] Acessando {URL_LOGIN}", flush=True)
+        driver.set_page_load_timeout(30)
+        try:
+            driver.get(URL_LOGIN)
+        except Exception as e:
+            print(f"[WARN] Timeout no page load (esperado - Flash/YouTube): {e}", flush=True)
         driver.save_screenshot(str(SCREENSHOTS_DIR / "01_pagina_inicial.png"))
-        print("[SCREENSHOT] 01_pagina_inicial.png")
+        print("[SCREENSHOT] 01_pagina_inicial.png", flush=True)
+        print(f"[INFO] URL atual: {driver.current_url}", flush=True)
 
         # Re-aplica CDP apos carregar a pagina (necessario em algumas versoes do Chrome)
         driver.execute_cdp_cmd("Page.setDownloadBehavior", {
@@ -165,23 +175,28 @@ def executar():
         })
 
         # Selecionar "Logistica" no dropdown de empresa
-        print("[*] Selecionando servico: Logistica...")
+        print("[*] Selecionando servico: Logistica...", flush=True)
         dropdown_empresa = wait.until(
             EC.presence_of_element_located((By.ID, "ddlEmpresa"))
         )
         select = Select(dropdown_empresa)
         select.select_by_value("Logistica")
-        print("[OK] Servico selecionado!")
+        print("[OK] Servico selecionado!", flush=True)
         driver.save_screenshot(str(SCREENSHOTS_DIR / "02_servico_selecionado.png"))
-        print("[SCREENSHOT] 02_servico_selecionado.png")
+        print("[SCREENSHOT] 02_servico_selecionado.png", flush=True)
 
         # Aguarda a pagina reagir ao postback do dropdown
-        time.sleep(2)
+        print("[*] Aguardando postback...", flush=True)
+        time.sleep(5)
+        driver.save_screenshot(str(SCREENSHOTS_DIR / "02b_apos_postback.png"))
+        print("[SCREENSHOT] 02b_apos_postback.png", flush=True)
 
         # Preencher usuario
+        print("[*] Procurando campo txtLogin...", flush=True)
         campo_usuario = wait.until(
             EC.presence_of_element_located((By.ID, "txtLogin"))
         )
+        print("[OK] Campo txtLogin encontrado!", flush=True)
         campo_usuario.click()
         campo_usuario.clear()
         campo_usuario.send_keys(USUARIO)
@@ -191,6 +206,7 @@ def executar():
         campo_senha.click()
         campo_senha.clear()
         campo_senha.send_keys(SENHA)
+        print("[OK] Credenciais preenchidas!", flush=True)
 
         # Clicar em Entrar (imagem btEntrar.jpg)
         btn_entrar = wait.until(
@@ -199,23 +215,24 @@ def executar():
             )
         )
         btn_entrar.click()
-        print("[OK] Login realizado!")
-        time.sleep(2)
+        print("[OK] Login realizado!", flush=True)
+        time.sleep(3)
         driver.save_screenshot(str(SCREENSHOTS_DIR / "03_apos_login.png"))
-        print("[SCREENSHOT] 03_apos_login.png")
+        print("[SCREENSHOT] 03_apos_login.png", flush=True)
+        print(f"[INFO] URL apos login: {driver.current_url}", flush=True)
 
         # ----- ETAPA 2: ULTIMAS POSICOES -----
-        print("[*] Abrindo Ultimas Posicoes...")
+        print("[*] Abrindo Ultimas Posicoes...", flush=True)
         link_posicoes = wait.until(
             EC.element_to_be_clickable((By.ID, "CP_btn01"))
         )
         link_posicoes.click()
-        print("[OK] Ultimas Posicoes aberta!")
+        print("[OK] Ultimas Posicoes aberta!", flush=True)
 
         # Aguarda a pagina de posicoes carregar
-        time.sleep(3)
+        time.sleep(5)
         driver.save_screenshot(str(SCREENSHOTS_DIR / "04_ultimas_posicoes.png"))
-        print("[SCREENSHOT] 04_ultimas_posicoes.png")
+        print("[SCREENSHOT] 04_ultimas_posicoes.png", flush=True)
 
         # Verifica se abriu em nova janela/aba
         if len(driver.window_handles) > 1:
@@ -223,7 +240,7 @@ def executar():
             print("[->] Alternado para nova janela/aba.")
 
         # ----- ETAPA 3: EXPORTAR XLS -----
-        print("[*] Clicando em Exportar XLS...")
+        print("[*] Clicando em Exportar XLS...", flush=True)
         
         # Tenta fechar qualquer alert/popup antes de clicar
         try:
@@ -237,9 +254,9 @@ def executar():
             EC.element_to_be_clickable((By.ID, "CP_BtnExportXLS"))
         )
         btn_exportar.click()
-        print("[OK] Exportacao iniciada!")
+        print("[OK] Exportacao iniciada!", flush=True)
         driver.save_screenshot(str(SCREENSHOTS_DIR / "05_apos_exportar.png"))
-        print("[SCREENSHOT] 05_apos_exportar.png")
+        print("[SCREENSHOT] 05_apos_exportar.png", flush=True)
         
         # Aguarda um pouco e tenta aceitar qualquer confirmacao de download
         time.sleep(2)
@@ -251,9 +268,9 @@ def executar():
             pass
 
         # ----- ETAPA 4: AGUARDAR DOWNLOAD -----
-        print("[*] Aguardando download...")
+        print("[*] Aguardando download...", flush=True)
         arquivo_baixado = aguardar_download(download_tmp)
-        print(f"[OK] Download concluido: {os.path.basename(arquivo_baixado)}")
+        print(f"[OK] Download concluido: {os.path.basename(arquivo_baixado)}", flush=True)
 
         # ----- ETAPA 5: MOVER E RENOMEAR -----
         agora = datetime.now().strftime("%Y-%m-%dT%H%M%S")
@@ -264,7 +281,7 @@ def executar():
         print(f"[OK] Arquivo salvo em: {caminho_final}")
 
     except Exception as e:
-        print(f"[ERRO] {e}")
+        print(f"[ERRO] {e}", flush=True)
         if driver:
             driver.save_screenshot(str(SCREENSHOTS_DIR / "99_ERRO.png"))
             print("[SCREENSHOT] 99_ERRO.png - Captura no momento do erro")
