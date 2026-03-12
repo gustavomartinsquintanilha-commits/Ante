@@ -19,7 +19,6 @@ from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-from webdriver_manager.chrome import ChromeDriverManager
 
 # Garante saida UTF-8 no console Windows
 if sys.stdout.encoding != "utf-8":
@@ -35,11 +34,19 @@ USUARIO = "julyana"
 SENHA = "julyana"
 
 # Diretorio destino do arquivo baixado
-DESTINO = Path(r"C:\Users\gusta\OneDrive\Documentos\Codigos\Reporte - Logistico\Base")
+IS_CI = os.environ.get("HEADLESS", "").lower() == "true"
+if IS_CI:
+    DESTINO = Path(os.getcwd()) / "output"
+else:
+    DESTINO = Path(r"C:\Users\gusta\OneDrive\Documentos\Codigos\Reporte - Logistico\Base")
 
 # Tempo maximo de espera (segundos)
 TIMEOUT_ELEMENTO = 30
 TIMEOUT_DOWNLOAD = 60
+
+# Pasta para salvar screenshots de debug
+SCREENSHOTS_DIR = Path(os.getcwd()) / "screenshots"
+SCREENSHOTS_DIR.mkdir(exist_ok=True)
 
 
 # ==========================================================
@@ -53,17 +60,25 @@ def criar_driver(download_dir: str) -> webdriver.Chrome:
         "download.default_directory": download_dir,
         "download.prompt_for_download": False,
         "download.directory_upgrade": True,
-        "safebrowsing.enabled": True,
+        "safebrowsing.enabled": False,
     }
     opts.add_experimental_option("prefs", prefs)
-    # Descomente a linha abaixo para rodar sem janela visivel (headless):
-    # opts.add_argument("--headless=new")
+    # Modo headless via variavel de ambiente
+    if IS_CI:
+        opts.add_argument("--headless=new")
+        print("[*] Executando em modo HEADLESS", flush=True)
     opts.add_argument("--disable-gpu")
     opts.add_argument("--no-sandbox")
+    opts.add_argument("--disable-dev-shm-usage")
     opts.add_argument("--window-size=1280,900")
 
-    service = Service(ChromeDriverManager().install())
-    driver = webdriver.Chrome(service=service, options=opts)
+    # No CI usa chromedriver do sistema, local usa webdriver_manager
+    if IS_CI:
+        driver = webdriver.Chrome(options=opts)
+    else:
+        from webdriver_manager.chrome import ChromeDriverManager
+        service = Service(ChromeDriverManager().install())
+        driver = webdriver.Chrome(service=service, options=opts)
     return driver
 
 
@@ -92,7 +107,7 @@ def executar():
     """Fluxo principal de automacao."""
     # Cria pasta temporaria para download
     download_tmp = tempfile.mkdtemp(prefix="posicoes_dl_")
-    print(f"[DIR] Download temporario: {download_tmp}")
+    print(f"[DIR] Download temporario: {download_tmp}", flush=True)
 
     # Garante que o destino existe
     DESTINO.mkdir(parents=True, exist_ok=True)
@@ -100,13 +115,19 @@ def executar():
     driver = None
     try:
         # ----- Inicializa o browser -----
-        print("[*] Abrindo navegador...")
+        print("[*] Abrindo navegador...", flush=True)
         driver = criar_driver(download_tmp)
+        driver.set_page_load_timeout(30)
         wait = WebDriverWait(driver, TIMEOUT_ELEMENTO)
 
         # ----- ETAPA 1: LOGIN -----
-        print(f"[*] Acessando {URL_LOGIN}")
-        driver.get(URL_LOGIN)
+        print(f"[*] Acessando {URL_LOGIN}", flush=True)
+        try:
+            driver.get(URL_LOGIN)
+        except Exception as e:
+            print(f"[WARN] Timeout no page load: {e}", flush=True)
+        driver.save_screenshot(str(SCREENSHOTS_DIR / "posicoes_01_login.png"))
+        print("[SCREENSHOT] posicoes_01_login.png", flush=True)
 
         campo_usuario = wait.until(
             EC.presence_of_element_located((By.ID, "txtLogin"))
@@ -120,17 +141,20 @@ def executar():
 
         btn_entrar = driver.find_element(By.ID, "btnLogin")
         btn_entrar.click()
-        print("[OK] Login realizado!")
+        print("[OK] Login realizado!", flush=True)
+        time.sleep(3)
+        driver.save_screenshot(str(SCREENSHOTS_DIR / "posicoes_02_apos_login.png"))
+        print("[SCREENSHOT] posicoes_02_apos_login.png", flush=True)
 
         # ----- ETAPA 2: ULTIMAS POSICOES -----
-        print("[*] Abrindo Ultimas Posicoes...")
+        print("[*] Abrindo Ultimas Posicoes...", flush=True)
         link_posicoes = wait.until(
             EC.element_to_be_clickable(
                 (By.XPATH, "//a[contains(@onclick,'AbreUltimasPosicoes')]")
             )
         )
         link_posicoes.click()
-        print("[OK] Ultimas Posicoes aberta!")
+        print("[OK] Ultimas Posicoes aberta!", flush=True)
 
         # Aguarda a pagina de posicoes carregar
         time.sleep(3)
@@ -141,19 +165,20 @@ def executar():
             print("[->] Alternado para nova janela/aba.")
 
         # ----- ETAPA 3: EXPORTAR XLS -----
-        print("[*] Clicando em Exportar XLS...")
+        print("[*] Clicando em Exportar XLS...", flush=True)
+        driver.save_screenshot(str(SCREENSHOTS_DIR / "posicoes_03_ultimas_posicoes.png"))
         btn_exportar = wait.until(
             EC.element_to_be_clickable(
                 (By.ID, "ctl00_ContentPlaceHolderPortal_btnExportXLS")
             )
         )
         btn_exportar.click()
-        print("[OK] Exportacao iniciada!")
+        print("[OK] Exportacao iniciada!", flush=True)
 
         # ----- ETAPA 4: AGUARDAR DOWNLOAD -----
-        print("[*] Aguardando download...")
+        print("[*] Aguardando download...", flush=True)
         arquivo_baixado = aguardar_download(download_tmp)
-        print(f"[OK] Download concluido: {os.path.basename(arquivo_baixado)}")
+        print(f"[OK] Download concluido: {os.path.basename(arquivo_baixado)}", flush=True)
 
         # ----- ETAPA 5: MOVER E RENOMEAR -----
         agora = datetime.now().strftime("%Y-%m-%dT%H%M%S")
@@ -164,12 +189,15 @@ def executar():
         print(f"[OK] Arquivo salvo em: {caminho_final}")
 
     except Exception as e:
-        print(f"[ERRO] {e}")
+        print(f"[ERRO] {e}", flush=True)
+        if driver:
+            driver.save_screenshot(str(SCREENSHOTS_DIR / "posicoes_99_ERRO.png"))
+            print("[SCREENSHOT] posicoes_99_ERRO.png", flush=True)
         raise
     finally:
         if driver:
             driver.quit()
-            print("[OK] Navegador fechado.")
+            print("[OK] Navegador fechado.", flush=True)
         # Limpa pasta temporaria
         try:
             shutil.rmtree(download_tmp, ignore_errors=True)
