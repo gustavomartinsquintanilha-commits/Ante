@@ -32,7 +32,12 @@ jobs:
         uses: nanasess/setup-chromedriver@v2
 
       - name: Debug - Inspecionar HTML do site
-        run: python debug_html.py
+        run: |
+          echo "PWD: $(pwd)"
+          ls -la
+          python debug_html.py
+          echo "--- Debug output ---"
+          ls -la debug_output/ || echo "debug_output nao existe"
         env:
           HEADLESS: "true"
         timeout-minutes: 2
@@ -42,6 +47,8 @@ jobs:
         if: always()
         with:
           name: debug-output
-          path: debug_output/
+          path: |
+            debug_output/
+            **/debug_output/
           if-no-files-found: warn
           retention-days: 7
