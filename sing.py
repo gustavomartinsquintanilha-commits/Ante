@@ -1,8 +1,14 @@
+import os
+import sys
+
+# No CI, pula execução (SQL Server não disponível)
+if os.environ.get("HEADLESS", "").lower() == "true":
+    print("[SKIP] sing.py - SQL Server não disponível no CI", flush=True)
+    sys.exit(0)
+
 import pyodbc
 import pandas as pd
 from datetime import datetime, timedelta
-import os
-import sys
 import time
 from dotenv import load_dotenv
 from pathlib import Path
