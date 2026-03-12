@@ -43,10 +43,10 @@ jobs:
           VPN_PID=$!
           echo "[VPN] PID: $VPN_PID"
           
-          # Aguarda até 30s pelo tunnel (ppp0)
+          # Aguarda até 30s pelo tunnel ppp0 ficar UP com IP
           for i in $(seq 1 30); do
-            if ip link show ppp0 > /dev/null 2>&1; then
-              echo "[VPN] Tunnel ppp0 ativo apos ${i}s!"
+            if ip addr show ppp0 2>/dev/null | grep -q "inet "; then
+              echo "[VPN] ppp0 com IP apos ${i}s!"
               break
             fi
             if ! kill -0 $VPN_PID 2>/dev/null; then
@@ -54,18 +54,26 @@ jobs:
               cat /tmp/vpn.log
               break
             fi
+            echo "[VPN] Aguardando ppp0 IP... (${i}s)"
             sleep 1
           done
           
-          # Mostra status
-          echo "=== VPN LOG ==="
-          cat /tmp/vpn.log 2>/dev/null | tail -20
+          # Mostra IP do ppp0
           echo "=== INTERFACES ==="
           ip addr show ppp0 2>/dev/null || echo "ppp0 NAO encontrado"
+          
+          # Adiciona rota para rede interna via ppp0
+          if ip link show ppp0 > /dev/null 2>&1; then
+            sudo ip route add 192.168.40.0/24 dev ppp0 2>/dev/null || echo "[VPN] Rota ja existe ou falhou"
+            echo "[VPN] Rota adicionada: 192.168.40.0/24 via ppp0"
+          fi
+          
           echo "=== ROTAS ==="
           ip route
+          echo "=== VPN LOG ==="
+          cat /tmp/vpn.log 2>/dev/null | tail -10
           echo "=== TESTE ==="
-          ping -c 2 -W 3 192.168.40.30 && echo "[VPN] OK!" || echo "[VPN] WARN - ping falhou"
+          ping -c 3 -W 5 192.168.40.30 && echo "[VPN] OK!" || echo "[VPN] WARN - ping falhou"
 
       - name: Setup Chrome
         uses: browser-actions/setup-chrome@v1
