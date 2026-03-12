@@ -18,10 +18,39 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Instalar dependencias
+      - name: Instalar ODBC Driver 17 e openfortivpn
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y openfortivpn unixodbc-dev
+          curl -fsSL https://packages.microsoft.com/keys/microsoft.asc | sudo gpg --dearmor -o /usr/share/keyrings/microsoft-prod.gpg
+          echo "deb [arch=amd64 signed-by=/usr/share/keyrings/microsoft-prod.gpg] https://packages.microsoft.com/ubuntu/$(lsb_release -rs)/prod $(lsb_release -cs) main" | sudo tee /etc/apt/sources.list.d/mssql-release.list
+          sudo apt-get update
+          sudo ACCEPT_EULA=Y apt-get install -y msodbcsql17
+
+      - name: Instalar dependencias Python
         run: |
           pip install --upgrade pip
           pip install -r requirements.txt
+
+      - name: Conectar VPN (FortiGate SSL)
+        run: |
+          cat > /tmp/vpn.conf << EOF
+          host = 8.243.35.166
+          port = 443
+          username = gustavo.martins
+          password = Ljkaus*&2025
+          EOF
+          # Obtem fingerprint do certificado
+          CERT_HASH=$(echo | openssl s_client -connect 8.243.35.166:443 2>/dev/null | openssl x509 -fingerprint -sha256 -noout | sed 's/.*=//;s/://g')
+          echo "[VPN] Certificado: $CERT_HASH"
+          # Conecta em background
+          sudo openfortivpn 8.243.35.166:443 -u gustavo.martins -p 'Ljkaus*&2025' --trusted-cert="$CERT_HASH" &
+          VPN_PID=$!
+          echo "[VPN] PID: $VPN_PID"
+          sleep 15
+          echo "[VPN] Verificando conectividade..."
+          ip route
+          ping -c 3 -W 5 192.168.40.30 && echo "[VPN] OK - SQL Server acessivel!" || echo "[VPN] WARN - SQL Server nao respondeu ao ping (pode ser firewall ICMP)"
 
       - name: Setup Chrome
         uses: browser-actions/setup-chrome@v1
