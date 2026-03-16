@@ -9,7 +9,7 @@ import smtplib
 # ==========================================================
 # True  = envia tudo para GUSTAVO (teste)
 # False = envia para os destinatarios reais (producao)
-MODO_TESTE = True
+MODO_TESTE = False
 EMAIL_TESTE = 'gustavo.martins@optimuz.com.br'
 
 # --- Configurações SMTP ---
