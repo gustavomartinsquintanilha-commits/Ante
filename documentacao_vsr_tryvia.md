@@ -66,7 +66,7 @@ Disparado estritamente quando o código varre toda a base referencial do cliente
 
 ## 5. Benefícios para a Tryvia
 O impacto operacional que essa automação traz para a saúde das frotas da Tryvia é abrangente:
-- **Redução Agressiva de Custo e Tempo**: O processo exaustivo que demandaria horas de analistas (copiando dados de planilhas e disparando e-mails manuais o dia todo) agora é executado de forma impecável e simultânea pela máquina, liberando a equipe de Suporte para atuar de forma mais analítica.
+- **Redução Agressiva de Custo e Tempo**: Quando realizado de forma manual, esse processo exigia que um colaborador dedicasse **cerca de 4 a 5 horas** para concluir todas as etapas — baixando planilhas, cruzando dados, gerando relatórios e disparando e-mails individualmente. Agora, com a automação, **o processo leva aproximadamente 2 minutos**, sem nenhuma etapa manual, sendo executado de forma mais completa e detalhada. Isso libera a equipe de Suporte para atuar de forma mais analítica e estratégica.
 - **Eliminação de Erros Manuais**: Foi mitigado o risco de falha humana (esquecer de notificar um parceiro em dia de pico, ou de anexar, por lapso de troca de janelas, o relatório do cliente Y para o cliente X numa quebra de confidencialidade). 
 - **Presença Constante de Marca e Pós-Venda Ativo**: Os envios institucionais mantêm o emblema da nossa atuação, zelando pela frota diretamente na caixa de e-mail diária dos gestores operacionais do parceiro. Isso posiciona a **Tryvia** não apenas como fornecedora, mas como uma engrenagem ativa na operação diária e de gestão inteligente da logística do cliente.
 
@@ -87,18 +87,18 @@ Ao término de cada execução, o sistema envia automaticamente um e-mail de res
 
 ### Cenário de Sucesso
 Quando todo o processo é executado corretamente, um e-mail de confirmação é enviado com:
-- ✅ Confirmação de execução bem-sucedida
-- 📊 Quantidade de relatórios gerados
-- 📧 Lista de clientes notificados
-- 🏆 Clientes que atingiram a meta (0 veículos sem reportar)
+-  Confirmação de execução bem-sucedida
+-  Quantidade de relatórios gerados
+-  Lista de clientes notificados
+-  Clientes que atingiram a meta (0 veículos sem reportar)
 
 ### Cenário de Falha
-Caso ocorra algum problema durante a execução, o sistema notifica a equipe com detalhes sobre o tipo de falha. Os principais tipos de falha esperados são:
+Caso ocorra algum problema durante a execução, o sistema notifica a equipe interna com detalhes sobre o tipo de falha. Os principais tipos de falha esperados são:
 
 | Tipo de Falha | Descrição | Ação Recomendada |
 |---------------|-----------|------------------|
 | **Falha de Conexão VPN** | Não foi possível estabelecer conexão com a rede interna para acessar o banco de dados | Verificar credenciais VPN e status do gateway FortiGate |
-| **Timeout de Banco de Dados** | O SQL Server não respondeu dentro do tempo limite | Verificar disponibilidade do servidor 192.168.40.30 |
+| **Timeout de Banco de Dados** | O SQL Server não respondeu dentro do tempo limite | Verificar disponibilidade do servidor |
 | **Falha de Login nas Plataformas** | Credenciais de acesso aos portais web expiraram ou foram alteradas | Atualizar credenciais no código |
 | **Erro de Download de Planilhas** | Não foi possível baixar os relatórios das plataformas de rastreamento | Verificar se os portais estão online e acessíveis |
 | **Falha no Envio de E-mail (SMTP)** | Problema na autenticação ou limite de envios do Gmail | Verificar App Password e limites de quota |
