@@ -92,9 +92,9 @@ destinatarios = {
     'destigo': EMAIL_TESTE,
 }
 
-# --- CC (no modo teste agora também envia para a mesma lista CC) ---
+# --- CC ---
 EMAIL_CC_PRODUCAO = 'marciele@newsgps.com.br, julyana@newsgps.com.br, marlos.miranda@newsgps.com.br, renata.braga@newsgps.com.br, adriana.florencio@newsgps.com.br, andreia.ribeiro@newsgps.com.br, jessica.dias@quadrisystems.com.br, gustavo.martins@optimuz.com.br, hudson.ferreira@optimuz.com.br, gustavo.andrade@quadrisystems.com.br, leandro.gomes@optimuz.com.br, joao.peres@optimuz.com.br'
-EMAIL_CC = EMAIL_CC_PRODUCAO # Alterado: modo teste também copia os envolvidos
+EMAIL_CC = '' if MODO_TESTE else EMAIL_CC_PRODUCAO
 
 # --- Mapeamento de aliases ---
 empresa_aliases = {
