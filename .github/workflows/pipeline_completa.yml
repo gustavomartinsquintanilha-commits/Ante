@@ -2,8 +2,8 @@ name: Pipeline Completa VSR
 
 on:
   workflow_dispatch:  # Permite execucao manual
-  # schedule:
-  #   - cron: '0 8 * * *'  # Descomente para agendar (ex: todo dia 8h UTC)
+  schedule:
+    - cron: '0 12 * * 4'  # Toda quinta-feira as 09:00 (horario de Brasilia = 12:00 UTC)
 
 jobs:
   pipeline:
