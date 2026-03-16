@@ -239,7 +239,62 @@ def executar():
             driver.switch_to.window(driver.window_handles[-1])
             print("[->] Alternado para nova janela/aba.")
 
-        # ----- ETAPA 3: EXPORTAR XLS -----
+        # ----- ETAPA 3: FILTRO DATA INICIO (2 anos atras) -----
+        print("[*] Configurando filtro de data de inicio...", flush=True)
+
+        # 3a. Clica no dropdown do calendario de data inicio
+        print("[*] Abrindo calendario de Data Inicio...", flush=True)
+        btn_calendario = wait.until(
+            EC.element_to_be_clickable((By.ID, "CP_DataInicio_B-1Img"))
+        )
+        btn_calendario.click()
+        time.sleep(1)
+        driver.save_screenshot(str(SCREENSHOTS_DIR / "05_calendario_aberto.png"))
+        print("[SCREENSHOT] 05_calendario_aberto.png", flush=True)
+
+        # 3b. Clica 2x na seta "ano anterior" (<<) para voltar 2 anos
+        for click_num in range(1, 3):
+            print(f"[*] Clicando seta ano anterior ({click_num}/2)...", flush=True)
+            btn_prev_year = wait.until(
+                EC.element_to_be_clickable((By.ID, "CP_DataInicio_DDD_C_PYCImg"))
+            )
+            btn_prev_year.click()
+            time.sleep(0.5)
+        driver.save_screenshot(str(SCREENSHOTS_DIR / "06_2anos_atras.png"))
+        print("[SCREENSHOT] 06_2anos_atras.png", flush=True)
+
+        # 3c. Seleciona o primeiro dia disponivel do mes no calendario
+        print("[*] Selecionando primeiro dia disponivel...", flush=True)
+        dias_disponiveis = driver.find_elements(
+            By.CSS_SELECTOR, "td.dxeCalendarDay"
+        )
+        dia_selecionado = None
+        for dia in dias_disponiveis:
+            classes = dia.get_attribute("class") or ""
+            if "dxeCalendarOtherMonth" in classes:
+                continue
+            texto = dia.text.strip()
+            if texto and texto.isdigit():
+                dia.click()
+                dia_selecionado = texto
+                print(f"[OK] Dia selecionado: {dia_selecionado}", flush=True)
+                break
+
+        if not dia_selecionado:
+            raise Exception("Nenhum dia disponivel encontrado no calendario!")
+
+        time.sleep(1)
+        driver.save_screenshot(str(SCREENSHOTS_DIR / "07_data_selecionada.png"))
+        print("[SCREENSHOT] 07_data_selecionada.png", flush=True)
+
+        # 3d. Valida que a data foi aplicada no campo
+        campo_data = driver.find_element(By.ID, "CP_DataInicio_I")
+        valor_data = campo_data.get_attribute("value") or ""
+        print(f"[VALIDACAO] Data de inicio configurada: '{valor_data}'", flush=True)
+        if not valor_data:
+            print("[WARN] Campo de data parece vazio!", flush=True)
+
+        # ----- ETAPA 4: EXPORTAR XLS -----
         print("[*] Clicando em Exportar XLS...", flush=True)
         
         # Tenta fechar qualquer alert/popup antes de clicar
@@ -267,12 +322,12 @@ def executar():
         except:
             pass
 
-        # ----- ETAPA 4: AGUARDAR DOWNLOAD -----
+        # ----- ETAPA 5: AGUARDAR DOWNLOAD -----
         print("[*] Aguardando download...", flush=True)
         arquivo_baixado = aguardar_download(download_tmp)
         print(f"[OK] Download concluido: {os.path.basename(arquivo_baixado)}", flush=True)
 
-        # ----- ETAPA 5: MOVER E RENOMEAR -----
+        # ----- ETAPA 6: MOVER E RENOMEAR -----
         agora = datetime.now().strftime("%Y-%m-%dT%H%M%S")
         nome_final = f"Logistico - {agora}.xls"
         caminho_final = DESTINO / nome_final
