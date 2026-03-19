@@ -113,8 +113,8 @@ jobs:
         with:
           name: relatorios-gerados
           path: |
-            "Envio de e-mail - VSR/relatorios/"
-            "Reporte - Logistico/Base/"
+            relatorios_envio/
+            output/
           if-no-files-found: warn
           retention-days: 7
 
