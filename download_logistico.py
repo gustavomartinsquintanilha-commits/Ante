@@ -176,9 +176,22 @@ def executar():
 
         # Selecionar "Logistica" no dropdown de empresa
         print("[*] Selecionando servico: Logistica...", flush=True)
-        dropdown_empresa = wait.until(
-            EC.presence_of_element_located((By.ID, "ddlEmpresa"))
-        )
+        time.sleep(3)  # Aguarda pagina carregar completamente
+        
+        # Tenta encontrar o dropdown com retry
+        dropdown_empresa = None
+        for tentativa in range(3):
+            try:
+                dropdown_empresa = wait.until(
+                    EC.presence_of_element_located((By.ID, "ddlEmpresa"))
+                )
+                break
+            except:
+                print(f"[WARN] Tentativa {tentativa + 1} falhou, aguardando...", flush=True)
+                time.sleep(2)
+        
+        if not dropdown_empresa:
+            raise Exception("Dropdown de empresa nao encontrado apos 3 tentativas")
         select = Select(dropdown_empresa)
         select.select_by_value("Logistica")
         print("[OK] Servico selecionado!", flush=True)
