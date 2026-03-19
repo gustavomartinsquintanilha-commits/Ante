@@ -141,7 +141,10 @@ def executar():
         try:
             driver.get(URL_LOGIN)
         except Exception as e:
-            print(f"[WARN] Timeout no page load: {e}", flush=True)
+            print(f"[WARN] Timeout no page load (esperado): {e}", flush=True)
+        
+        # Aguarda um pouco mais para a pagina carregar completamente
+        time.sleep(5)
         driver.save_screenshot(str(SCREENSHOTS_DIR / "posicoes_01_login.png"))
         print("[SCREENSHOT] posicoes_01_login.png", flush=True)
 
