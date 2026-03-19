@@ -25,7 +25,7 @@
 
 ---
 
-## v1.1 - 2026-03-19 (Estável)
+## v1.1 - 2026-03-19 (Produção Ativa)
 
 ### Alteracoes
 - **download_logistico.py** - Novo filtro de data de inicio antes de exportar:
