@@ -1,4 +1,4 @@
-name: Pipeline Completa VSR
+name: Pipeline Completa VSR v1.1
 
 on:
   workflow_dispatch:  # Permite execucao manual
