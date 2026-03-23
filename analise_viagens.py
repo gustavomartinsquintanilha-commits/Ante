@@ -1,7 +1,7 @@
 import os, sys, io
 import pyodbc
 import pandas as pd
-from datetime import datetime
+from datetime import datetime, timedelta
 from dotenv import load_dotenv
 import smtplib
 from email.message import EmailMessage
@@ -50,13 +50,13 @@ def consultar_dados(conn):
     # Consulta todas as empresas para o De/Para de Apelido
     empresas = pd.read_sql("SET NOCOUNT ON; SELECT ID, Apelido FROM dbo.Com_Empresa", conn)
 
-    # Consulta viagens do dia atual (data dinamica)
+    # Consulta viagens do dia anterior (data dinamica D-1)
     viagens = pd.read_sql("""
         SET NOCOUNT ON;
         SELECT DataReferencia, DataPartidaPrevista, DataPartidaReal, IDCliente
         FROM dbo.Ope_GradeOperacao
-        WHERE DataReferencia >= CAST(GETDATE() AS DATE)
-          AND DataReferencia < DATEADD(DAY, 1, CAST(GETDATE() AS DATE))
+        WHERE DataReferencia >= CAST(DATEADD(DAY, -1, GETDATE()) AS DATE)
+          AND DataReferencia < CAST(GETDATE() AS DATE)
           AND (isCancelado = 0 OR isCancelado IS NULL)
     """, conn)
 
@@ -81,11 +81,12 @@ def processar_analise(viagens, empresas):
 
 def enviar_email_resultado(df):
     """Gera tabela HTML e envia por e-mail para a equipe interna."""
-    hoje = datetime.now().strftime('%d/%m/%Y')
+    # Data de ontem (D-1) para o relatorio
+    ontem = (datetime.now() - timedelta(days=1)).strftime('%d/%m/%Y')
     
     if df.empty:
-        corpo_txt = f"Bom dia,\n\nNao foram encontrados clientes com execucao de viagens <= 80% para a data de {hoje}."
-        corpo_html = f"<p>Bom dia,</p><p>Nao foram encontrados clientes com execucao de viagens <b><= 80%</b> para a data de {hoje}.</p>"
+        corpo_txt = f"Bom dia,\n\nNao foram encontrados clientes com execucao de viagens <= 80% para a data de {ontem}."
+        corpo_html = f"<p>Bom dia,</p><p>Nao foram encontrados clientes com execucao de viagens <b><= 80%</b> para a data de {ontem}.</p>"
     else:
         # Constroi tabela HTML
         linhas_tabela = ""
@@ -100,10 +101,10 @@ def enviar_email_resultado(df):
             </tr>
             """
         
-        corpo_txt = f"Relatorio de Execucao de Viagens - {hoje}. Verifique a versao HTML para detalhes."
+        corpo_txt = f"Relatorio de Execucao de Viagens - {ontem}. Verifique a versao HTML para detalhes."
         corpo_html = f"""
         <p>Bom dia,</p>
-        <p>Seguem os clientes com percentual de execucao de viagens <b>menor ou igual a 80%</b> para a data de <b>{hoje}</b>:</p>
+        <p>Seguem os clientes com percentual de execucao de viagens <b>menor ou igual a 80%</b> para a data de ontem (D-1): <b>{ontem}</b></p>
         <table style='border-collapse: collapse; width: 100%; font-family: Arial, sans-serif;'>
             <thead>
                 <tr style='background-color: #f2f2f2;'>
@@ -121,7 +122,7 @@ def enviar_email_resultado(df):
         """
 
     msg = EmailMessage()
-    msg['Subject'] = f"Analise de Execucao de Viagens - {hoje}"
+    msg['Subject'] = f"Analise de Execucao de Viagens (D-1) - {ontem}"
     msg['From'] = SMTP_USER
     msg['To'] = ", ".join(DESTINATARIOS)
     
