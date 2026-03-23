@@ -23,7 +23,18 @@ URL_ASSINATURA = "https://drive.google.com/uc?export=view&id=1si56G_we2n1lhOTvuo
 
 # Destinatarios (Equipe Interna)
 DESTINATARIOS = [
-    'gustavo.martins@optimuz.com.br'
+    'gustavo.martins@optimuz.com.br',
+    'marciele@newsgps.com.br',
+    'julyana@newsgps.com.br',
+    'marlos.miranda@newsgps.com.br',
+    'renata.braga@newsgps.com.br',
+    'adriana.florencio@newsgps.com.br',
+    'andreia.ribeiro@newsgps.com.br',
+    'jessica.dias@quadrisystems.com.br',
+    'hudson.ferreira@optimuz.com.br',
+    'gustavo.andrade@quadrisystems.com.br',
+    'leandro.gomes@optimuz.com.br',
+    'joao.peres@optimuz.com.br',
 ]
 
 def conectar():
