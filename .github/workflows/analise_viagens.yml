@@ -3,7 +3,7 @@ name: Analise de Execucao de Viagens
 on:
   workflow_dispatch:  # Permite execucao manual
   schedule:
-    - cron: '0 15 23 3 *'  # TESTE: 12:00 BRT = 15:00 UTC em 23/03
+    - cron: '36 15 23 3 *'  # TESTE: 12:36 BRT = 15:36 UTC em 23/03
 
 jobs:
   analise:
