@@ -19,7 +19,7 @@ else:
     CAMINHO_BASE = BASE_DIR.parent / "Reporte - Logistico" / "Base"
     CAMINHO_ENVIO = BASE_DIR.parent / "Envio de e-mail - VSR" / "clientes_para_envio"
 
-TERMOS_IGNORADOS = ['_Historico', '_Reserva', '_Oficina', '_Venda', '_Teste', 'RESERVA', 'OFICINA', '_HISTORICO']
+TERMOS_IGNORADOS = ['_Historico', '_Reserva', '_Oficina', '_Venda', '_Teste', 'RESERVA', 'OFICINA', '_HISTORICO', '-historico', '-HISTORICO']
 
 CAMINHO_ENVIO.mkdir(parents=True, exist_ok=True)
 
