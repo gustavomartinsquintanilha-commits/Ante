@@ -250,22 +250,26 @@ def enviar_email_sucesso(arquivos_por_empresa, empresas_zero_veiculos):
     corpo = "Prezados,\n\n"
     corpo += "Informamos que todos os envios de relatórios VSR foram realizados com sucesso.\n"
     corpo += "Não foram identificadas inconsistências no processo.\n"
-    corpo += "\n📊 RESUMO DOS ENVIOS POR SISTEMA:\n"
+    corpo += "\n--- RESUMO DOS ENVIOS POR SISTEMA ---\n"
 
     for sistema, empresas in sorted(sistemas.items()):
-        corpo += f"\n🔹 {sistema}:\n"
+        corpo += f"\n  {sistema}:\n"
         for empresa_info in empresas:
             corpo += f"   - {empresa_info['nome']} - {empresa_info['qtd']} Veículo(s)\n"
 
     if empresas_zero_veiculos:
-        corpo += "\n🎉 EMPRESAS COM 0 VEÍCULOS SEM REPORTAR (PARABÉNS):\n"
+        corpo += "\n--- EMPRESAS COM 0 VEÍCULOS SEM REPORTAR ---\n"
         for info in empresas_zero_veiculos:
             corpo += f"   - {info['empresa_raw'].replace('_', ' ')} ({info['sistema']})\n"
 
     corpo += "\nCaso esteja faltando alguma empresa no envio de veículos sem reportar, favor informar para que seja acrescentada."
 
-    print("\n📨 Enviando e-mail de confirmação de sucesso...")
-    enviar_email(destinatario, corpo, [], "✅ VSR - Todos os envios realizados com sucesso")
+    # Destinatarios extras apenas para o e-mail de sucesso
+    extras_sucesso = 'adriel.carvalho@newsgps.com.br, gabriel.oliveira@quadrisystems.com.br'
+    destinatario_sucesso = f"{destinatario}, {extras_sucesso}" if destinatario else extras_sucesso
+
+    print("\nEnviando e-mail de confirmacao de sucesso...")
+    enviar_email(destinatario_sucesso, corpo, [], "VSR - Todos os envios realizados com sucesso")
 
 
 # ==========================================================
