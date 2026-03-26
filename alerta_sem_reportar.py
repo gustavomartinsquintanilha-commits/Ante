@@ -1,6 +1,6 @@
-import os, sys, io, pyodbc, smtplib
+import os, sys, io, pyodbc, smtplib, requests, time
 import pandas as pd
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from dotenv import load_dotenv
 from email.message import EmailMessage
 
@@ -39,11 +39,51 @@ REGRAS = [
     (76, None, 10), # 76+ veiculos: alerta se >= 10%
 ]
 
+# Diretorio do clientes_listagem.xlsx (SING)
+if IS_CI:
+    DIRETORIO_CLIENTES = os.getcwd()
+else:
+    DIRETORIO_CLIENTES = os.path.join(os.path.dirname(BASE_DIR), 'Reporte - SING', 'teste_banco', 'Clientes')
+
+# Configuracoes da Telemetria (mesmas do telemetria.py)
+TELEMETRIA_CONFIGS = [
+    {
+        "user": "gustavo.martins@optimuz.com.br.ng",
+        "group_ids": ["14405", "14416", "14380", "14351", "14451", "14435", "14447", "14445"]
+    },
+]
+TELEMETRIA_PASSWORD = os.getenv("API_PASSWORD", "gustavo")
+PALAVRAS_IGNORADAS = ["vendido", "desativado", "historico", "histórico", "sinistro", "teste"]
+
 # =================================================================
-# FUNCOES
+# FUNCOES COMUNS
 # =================================================================
 
-def conectar():
+def obter_limite_pct(total_veiculos):
+    for min_v, max_v, pct in REGRAS:
+        if max_v is None:
+            if total_veiculos >= min_v:
+                return pct
+        elif min_v <= total_veiculos <= max_v:
+            return pct
+    return None
+
+def aplicar_regras(df_resumo):
+    """Aplica regras de faixa e retorna apenas empresas que atingem o criterio."""
+    if df_resumo.empty:
+        return pd.DataFrame()
+    df_resumo['PctSemReportar'] = (df_resumo['SemReportar'] / df_resumo['TotalVeiculos'] * 100).round(2)
+    df_resumo['LimitePct'] = df_resumo['TotalVeiculos'].apply(obter_limite_pct)
+    return df_resumo[
+        (df_resumo['LimitePct'].notna()) &
+        (df_resumo['PctSemReportar'] >= df_resumo['LimitePct'])
+    ].copy()
+
+# =================================================================
+# SING - Consulta via banco de dados
+# =================================================================
+
+def conectar_sing():
     server, database = os.getenv('DB_SERVER'), os.getenv('DB_DATABASE')
     username, password = os.getenv('DB_USERNAME'), os.getenv('DB_PASSWORD')
     driver = os.getenv('DB_DRIVER')
@@ -54,80 +94,163 @@ def conectar():
         conn_str += ';TrustServerCertificate=yes;Encrypt=yes'
     return pyodbc.connect(conn_str)
 
-def consultar_veiculos(conn):
-    """Busca TODOS os veiculos ativos com ultima posicao."""
-    empresas = pd.read_sql("SET NOCOUNT ON; SELECT ID, Apelido FROM dbo.Com_Empresa", conn)
-    veiculos = pd.read_sql("""
+def processar_sing():
+    """Consulta veiculos SING apenas das empresas do clientes_listagem.xlsx."""
+    print("\n--- SISTEMA: SING ---")
+
+    # Le mapeamento de empresas
+    caminho_clientes = os.path.join(DIRETORIO_CLIENTES, 'clientes_listagem.xlsx')
+    if not os.path.exists(caminho_clientes):
+        print(f"Arquivo nao encontrado: {caminho_clientes}")
+        return pd.DataFrame()
+
+    df_clientes = pd.read_excel(caminho_clientes, header=None, names=['NomeCliente', 'IDCliente', 'ConfigEnv'])
+    df_clientes['IDCliente'] = pd.to_numeric(df_clientes['IDCliente'], errors='coerce')
+    df_clientes.dropna(subset=['IDCliente'], inplace=True)
+    df_clientes['IDCliente'] = df_clientes['IDCliente'].astype(int)
+    df_clientes['NomeCliente'] = df_clientes['NomeCliente'].astype(str).str.strip()
+    print(f"Empresas SING no VSR: {len(df_clientes)}")
+
+    ids_vsr = df_clientes['IDCliente'].tolist()
+    if not ids_vsr:
+        return pd.DataFrame()
+
+    conn = conectar_sing()
+    placeholders = ','.join(['?'] * len(ids_vsr))
+    veiculos = pd.read_sql(f"""
         SET NOCOUNT ON;
         SELECT veiculo.IDCliente, veiculo.Placa, veiculo.Descricao, up.DataGPSTZ
         FROM GPS_Ultimas_Posicoes up
         INNER JOIN Tbl_Veiculo veiculo ON up.IDVeiculo = veiculo.ID
-        WHERE veiculo.ativo = 1
-        ORDER BY veiculo.IDCliente, up.DataGPSTZ DESC
-    """, conn)
-    return empresas, veiculos
+        WHERE veiculo.ativo = 1 AND veiculo.IDCliente IN ({placeholders})
+    """, conn, params=ids_vsr)
+    conn.close()
 
-def obter_limite_pct(total_veiculos):
-    """Retorna o percentual limite de alerta conforme o tamanho da frota."""
-    for min_v, max_v, pct in REGRAS:
-        if max_v is None:
-            if total_veiculos >= min_v:
-                return pct
-        elif min_v <= total_veiculos <= max_v:
-            return pct
-    return None
+    print(f"Veiculos ativos SING: {len(veiculos)}")
 
-def processar_alertas(veiculos, empresas):
-    """Filtra veiculos sem reportar ha 3h+ e aplica regras de faixa."""
     if veiculos.empty:
         return pd.DataFrame()
 
-    agora = datetime.now()
-    limite_3h = agora - timedelta(hours=3)
-
-    # Converte DataGPSTZ para datetime
+    limite_3h = datetime.now() - timedelta(hours=3)
     veiculos['DataGPSTZ'] = pd.to_datetime(veiculos['DataGPSTZ'], errors='coerce')
-
-    # Marca veiculos sem reportar (DataGPSTZ < 3h atras OU nulo)
     veiculos['sem_reportar'] = (veiculos['DataGPSTZ'] < limite_3h) | (veiculos['DataGPSTZ'].isna())
 
-    # Agrupa por empresa
     resumo = veiculos.groupby('IDCliente').agg(
         TotalVeiculos=('Placa', 'count'),
         SemReportar=('sem_reportar', 'sum')
     ).reset_index()
-
     resumo['SemReportar'] = resumo['SemReportar'].astype(int)
-    resumo['PctSemReportar'] = (resumo['SemReportar'] / resumo['TotalVeiculos'] * 100).round(2)
 
-    # Aplica regra de faixa
-    resumo['LimitePct'] = resumo['TotalVeiculos'].apply(obter_limite_pct)
-    alertas = resumo[
-        (resumo['LimitePct'].notna()) &
-        (resumo['PctSemReportar'] >= resumo['LimitePct'])
-    ].copy()
+    # Adiciona nome da empresa
+    resumo = resumo.merge(df_clientes[['IDCliente', 'NomeCliente']], on='IDCliente', how='left')
+    resumo.rename(columns={'NomeCliente': 'Empresa'}, inplace=True)
 
-    if alertas.empty:
+    alertas = aplicar_regras(resumo)
+    if not alertas.empty:
+        print(f"Empresas SING em alerta: {len(alertas)}")
+    else:
+        print("Nenhuma empresa SING atingiu os criterios.")
+    return alertas
+
+# =================================================================
+# TELEMETRIA - Consulta via API REST
+# =================================================================
+
+def parse_data_telemetria(data_str):
+    if data_str and data_str.endswith("Z"):
+        data_str = data_str[:-1] + "+00:00"
+    try:
+        return datetime.fromisoformat(data_str)
+    except (ValueError, TypeError):
+        return None
+
+def processar_telemetria():
+    """Consulta veiculos Telemetria via API para os group_ids configurados."""
+    print("\n--- SISTEMA: TELEMETRIA ---")
+    resultados = []
+    agora_utc = datetime.now(timezone.utc)
+    limite_3h = agora_utc - timedelta(hours=3)
+
+    for config in TELEMETRIA_CONFIGS:
+        user = config["user"]
+        try:
+            url = f"https://l7g3za95wd.execute-api.us-west-2.amazonaws.com/MovaApi/login?user={user}&pass={TELEMETRIA_PASSWORD}"
+            resp = requests.get(url, timeout=10)
+            resp.raise_for_status()
+            token = resp.json().get("token")
+            if not token:
+                print(f"Token nao obtido para {user}")
+                continue
+        except Exception as e:
+            print(f"Erro no token para {user}: {e}")
+            continue
+
+        for group_id in config["group_ids"]:
+            try:
+                url = f"https://l7g3za95wd.execute-api.us-west-2.amazonaws.com/MovaApi/devstatus?group_id={group_id}"
+                resp = requests.get(url, headers={"token": token}, timeout=15)
+                resp.raise_for_status()
+                dados = resp.json()
+                lista = dados.get("data", []) if isinstance(dados, dict) else dados
+
+                if not lista:
+                    continue
+
+                nome_grupo = lista[0].get("group_name", f"Grupo {group_id}")
+                total = 0
+                sem_reportar = 0
+
+                for item in lista:
+                    if not (isinstance(item, dict) and item.get("device_identifier")):
+                        continue
+                    nome_unidade = str(item.get("tracked_unit_label2", "")).lower()
+                    if any(p in nome_unidade for p in PALAVRAS_IGNORADAS):
+                        continue
+
+                    total += 1
+                    local_time = parse_data_telemetria(item.get("local_time"))
+                    if local_time and local_time.tzinfo is None:
+                        local_time = local_time.replace(tzinfo=timezone.utc)
+
+                    if not local_time or local_time < limite_3h:
+                        sem_reportar += 1
+
+                if total > 0:
+                    resultados.append({
+                        'IDCliente': group_id,
+                        'Empresa': nome_grupo,
+                        'TotalVeiculos': total,
+                        'SemReportar': sem_reportar,
+                    })
+
+            except Exception as e:
+                print(f"Erro no group_id {group_id}: {e}")
+
+            time.sleep(2)
+
+    if not resultados:
+        print("Nenhum dado de telemetria obtido.")
         return pd.DataFrame()
 
-    # De/Para com nome da empresa
-    alertas = alertas.merge(empresas, left_on='IDCliente', right_on='ID', how='left').drop(columns=['ID'])
-    return alertas.sort_values('PctSemReportar', ascending=False)
+    df = pd.DataFrame(resultados)
+    print(f"Grupos Telemetria consultados: {len(df)} | Veiculos: {df['TotalVeiculos'].sum()}")
 
-def enviar_email_alerta(df):
-    """Envia e-mail HTML com a listagem de empresas em alerta."""
-    agora_str = datetime.now().strftime('%d/%m/%Y %H:%M')
-    destinatarios = [EMAIL_TESTE] if MODO_TESTE else DESTINATARIOS_PRODUCAO
+    alertas = aplicar_regras(df)
+    if not alertas.empty:
+        print(f"Empresas Telemetria em alerta: {len(alertas)}")
+    else:
+        print("Nenhuma empresa Telemetria atingiu os criterios.")
+    return alertas
 
-    if df.empty:
-        print("Nenhuma empresa atingiu os criterios de alerta. E-mail nao enviado.")
-        return
+# =================================================================
+# EMAIL
+# =================================================================
 
-    # Gera tabela HTML
-    linhas = "".join(
+def gerar_tabela_html(df):
+    """Gera tabela HTML a partir de um DataFrame de alertas."""
+    return "".join(
         f"<tr>"
-        f"<td style='border:1px solid #ddd;padding:8px'>{r['IDCliente']}</td>"
-        f"<td style='border:1px solid #ddd;padding:8px'>{r['Apelido']}</td>"
+        f"<td style='border:1px solid #ddd;padding:8px'>{r['Empresa']}</td>"
         f"<td style='border:1px solid #ddd;padding:8px;text-align:center'>{r['TotalVeiculos']}</td>"
         f"<td style='border:1px solid #ddd;padding:8px;text-align:center'>{r['SemReportar']}</td>"
         f"<td style='border:1px solid #ddd;padding:8px;text-align:center;color:red'>{r['PctSemReportar']}%</td>"
@@ -136,19 +259,43 @@ def enviar_email_alerta(df):
         for _, r in df.iterrows()
     )
 
-    corpo_html = f"""<p>Prezados,</p>
-    <p>Segue a listagem de empresas com percentual significativo de veiculos <b>sem reportar ha 3 ou mais horas</b>.</p>
-    <p>Data/Hora da verificacao: <b>{agora_str}</b></p>
-    <table style='border-collapse:collapse;width:100%;font-family:Arial,sans-serif'>
-    <thead><tr style='background-color:#f2f2f2'>
-        <th style='border:1px solid #ddd;padding:8px;text-align:left'>ID</th>
+def enviar_email_alerta(alertas_sing, alertas_telemetria):
+    """Envia e-mail HTML com alertas separados por sistema."""
+    agora_str = datetime.now().strftime('%d/%m/%Y %H:%M')
+    destinatarios = [EMAIL_TESTE] if MODO_TESTE else DESTINATARIOS_PRODUCAO
+
+    tem_sing = not alertas_sing.empty
+    tem_telemetria = not alertas_telemetria.empty
+
+    if not tem_sing and not tem_telemetria:
+        print("\nNenhuma empresa atingiu os criterios de alerta. E-mail nao enviado.")
+        return
+
+    header_tabela = """<thead><tr style='background-color:#f2f2f2'>
         <th style='border:1px solid #ddd;padding:8px;text-align:left'>Empresa</th>
         <th style='border:1px solid #ddd;padding:8px'>Total Veiculos</th>
         <th style='border:1px solid #ddd;padding:8px'>Sem Reportar</th>
         <th style='border:1px solid #ddd;padding:8px'>%</th>
         <th style='border:1px solid #ddd;padding:8px'>Regra</th>
-    </tr></thead><tbody>{linhas}</tbody></table>
-    <br>
+    </tr></thead>"""
+
+    corpo_html = f"""<p>Prezados,</p>
+    <p>Segue a listagem de empresas com percentual significativo de veiculos <b>sem reportar ha 3 ou mais horas</b>.</p>
+    <p>Data/Hora da verificacao: <b>{agora_str}</b></p>"""
+
+    if tem_sing:
+        corpo_html += f"""
+        <h3 style='color:#333;border-bottom:2px solid #ddd;padding-bottom:5px'>Sistema: SING</h3>
+        <table style='border-collapse:collapse;width:100%;font-family:Arial,sans-serif;margin-bottom:20px'>
+        {header_tabela}<tbody>{gerar_tabela_html(alertas_sing)}</tbody></table>"""
+
+    if tem_telemetria:
+        corpo_html += f"""
+        <h3 style='color:#333;border-bottom:2px solid #ddd;padding-bottom:5px'>Sistema: Telemetria</h3>
+        <table style='border-collapse:collapse;width:100%;font-family:Arial,sans-serif;margin-bottom:20px'>
+        {header_tabela}<tbody>{gerar_tabela_html(alertas_telemetria)}</tbody></table>"""
+
+    corpo_html += """<br>
     <p><small>Regras aplicadas: 1-25 veiculos: alerta >= 30% | 26-75: >= 20% | 76+: >= 10%</small></p>"""
 
     msg = EmailMessage()
@@ -166,9 +313,9 @@ def enviar_email_alerta(df):
             server.login(SMTP_USER, SMTP_PASS)
             server.send_message(msg)
         modo = "TESTE" if MODO_TESTE else "PRODUCAO"
-        print(f"E-mail enviado com sucesso ({modo}) para: {', '.join(destinatarios)}")
+        print(f"\nE-mail enviado com sucesso ({modo}) para: {', '.join(destinatarios)}")
     except Exception as e:
-        print(f"Erro ao enviar e-mail: {e}")
+        print(f"\nErro ao enviar e-mail: {e}")
 
 # =================================================================
 # MAIN
@@ -180,20 +327,22 @@ if __name__ == "__main__":
         print("** MODO TESTE - E-mails apenas para Gustavo **")
 
     try:
-        conn = conectar()
-        print("Conectado ao banco de dados.")
-        empresas, veiculos = consultar_veiculos(conn)
-        conn.close()
-        print(f"Dados obtidos. Empresas: {len(empresas)} | Veiculos ativos: {len(veiculos)}")
-
-        alertas = processar_alertas(veiculos, empresas)
-
-        if not alertas.empty:
-            print(f"\n{len(alertas)} empresas atingiram os criterios de alerta:")
-            print(alertas[['IDCliente', 'Apelido', 'TotalVeiculos', 'SemReportar', 'PctSemReportar', 'LimitePct']].to_string(index=False))
-            enviar_email_alerta(alertas)
-        else:
-            print("\nNenhuma empresa atingiu os criterios de alerta.")
-
+        alertas_sing = processar_sing()
     except Exception as e:
-        print(f"Erro durante a execucao: {e}")
+        print(f"Erro no processamento SING: {e}")
+        alertas_sing = pd.DataFrame()
+
+    try:
+        alertas_telemetria = processar_telemetria()
+    except Exception as e:
+        print(f"Erro no processamento Telemetria: {e}")
+        alertas_telemetria = pd.DataFrame()
+
+    # Exibe resumo no console
+    for sistema, df in [("SING", alertas_sing), ("TELEMETRIA", alertas_telemetria)]:
+        if not df.empty:
+            print(f"\n{sistema} - {len(df)} empresas em alerta:")
+            print(df[['Empresa', 'TotalVeiculos', 'SemReportar', 'PctSemReportar', 'LimitePct']].to_string(index=False))
+
+    # Envia e-mail
+    enviar_email_alerta(alertas_sing, alertas_telemetria)
