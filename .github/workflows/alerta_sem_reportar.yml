@@ -1,0 +1,58 @@
+name: Alerta Veiculos Sem Reportar
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 12,15,20 * * 1-5'  # 09h, 12h, 17h BRT (seg-sex)
+
+jobs:
+  alerta:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout codigo
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Instalar ODBC Driver 18 e openfortivpn
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y openfortivpn unixodbc-dev
+          sudo ACCEPT_EULA=Y apt-get install -y msodbcsql18
+
+      - name: Instalar dependencias Python
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Conectar VPN (FortiGate SSL)
+        run: |
+          CERT_HASH="92782b4f0bf72089ee27b368ae824d955c432528ce4cdb9b9a178d0c23762b8a"
+          echo "[VPN] Conectando a 8.243.35.166:443..."
+          
+          sudo openfortivpn 8.243.35.166:443 \
+            -u gustavo.martins \
+            -p 'Ljkaus*&2025' \
+            --trusted-cert=$CERT_HASH \
+            > /tmp/vpn.log 2>&1 &
+          VPN_PID=$!
+          
+          for i in $(seq 1 30); do
+            if ip addr show ppp0 2>/dev/null | grep -q "inet "; then
+              echo "[VPN] Conectado com sucesso!"
+              break
+            fi
+            sleep 1
+          done
+          
+          sudo ip route add 192.168.40.0/24 dev ppp0 2>/dev/null || true
+
+      - name: Executar alerta_sem_reportar.py
+        run: python alerta_sem_reportar.py
+        env:
+          HEADLESS: "true"
+        timeout-minutes: 10
