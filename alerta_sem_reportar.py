@@ -55,6 +55,12 @@ TELEMETRIA_CONFIGS = [
 TELEMETRIA_PASSWORD = os.getenv("API_PASSWORD", "gustavo")
 PALAVRAS_IGNORADAS = ["vendido", "desativado", "historico", "histórico", "sinistro", "teste"]
 
+# Timezone de Brasilia (UTC-3)
+BRT = timezone(timedelta(hours=-3))
+
+def agora_brt():
+    return datetime.now(BRT)
+
 # =================================================================
 # FUNCOES COMUNS
 # =================================================================
@@ -131,7 +137,7 @@ def processar_sing():
     if veiculos.empty:
         return pd.DataFrame()
 
-    limite_3h = datetime.now() - timedelta(hours=3)
+    limite_3h = agora_brt() - timedelta(hours=3)
     veiculos['DataGPSTZ'] = pd.to_datetime(veiculos['DataGPSTZ'], errors='coerce')
     veiculos['sem_reportar'] = (veiculos['DataGPSTZ'] < limite_3h) | (veiculos['DataGPSTZ'].isna())
 
@@ -261,7 +267,7 @@ def gerar_tabela_html(df):
 
 def enviar_email_alerta(alertas_sing, alertas_telemetria):
     """Envia e-mail HTML com alertas separados por sistema."""
-    agora_str = datetime.now().strftime('%d/%m/%Y %H:%M')
+    agora_str = agora_brt().strftime('%d/%m/%Y %H:%M')
     destinatarios = [EMAIL_TESTE] if MODO_TESTE else DESTINATARIOS_PRODUCAO
 
     tem_sing = not alertas_sing.empty
@@ -281,7 +287,7 @@ def enviar_email_alerta(alertas_sing, alertas_telemetria):
 
     corpo_html = f"""<p>Prezados,</p>
     <p>Segue a listagem de empresas com percentual significativo de veiculos <b>sem reportar ha 3 ou mais horas</b>.</p>
-    <p>Data/Hora da verificacao: <b>{agora_str}</b></p>"""
+    <p>Data/Hora da verificação: <b>{agora_str}</b></p>"""
 
     if tem_sing:
         corpo_html += f"""
@@ -322,7 +328,7 @@ def enviar_email_alerta(alertas_sing, alertas_telemetria):
 # =================================================================
 
 if __name__ == "__main__":
-    print(f"Alerta de Veiculos Sem Reportar - {datetime.now().strftime('%d/%m/%Y %H:%M')}")
+    print(f"Alerta de Veiculos Sem Reportar - {agora_brt().strftime('%d/%m/%Y %H:%M')}")
     if MODO_TESTE:
         print("** MODO TESTE - E-mails apenas para Gustavo **")
 
